@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\FakturSyarat;
+use App\Models\SyaratKetentuan;
 
 class Faktur extends Model
 {
@@ -26,30 +28,30 @@ class Faktur extends Model
     {
         return $this->belongsTo(Pelanggan::class, 'pelanggan_id');
     }
-
     public function items()
     {
         return $this->hasMany(FakturItem::class, 'faktur_id')->orderBy('urutan');
     }
-
     public function pajak()
     {
         return $this->belongsTo(Pajak::class, 'pajak_id');
     }
-
     public function diskon()
     {
         return $this->belongsTo(Diskon::class, 'diskon_id');
     }
-
     public function metodePembayaran()
     {
         return $this->belongsTo(MetodePembayaran::class, 'metode_pembayaran_id');
     }
-
     public function rekeningBank()
     {
         return $this->belongsTo(RekeningBank::class, 'rekening_bank_id');
+    }
+
+    public function syaratPivot()
+    {
+        return $this->hasMany(FakturSyarat::class, 'faktur_id')->orderBy('urutan');
     }
 
     public function syarat()
@@ -61,12 +63,10 @@ class Faktur extends Model
     }
 
     /**
-     * Hitung subtotal, diskon, pajak, dan total_bersih.
-     * Panggil ini setelah memuat relasi items (+ diskon/pajak) & diskon/pajak faktur.
+     * Hitung subtotal, diskon, pajak, dan total_bersih berdasarkan items + pajak/diskon faktur.
      */
     public function hitungTotal(): void
     {
-        // Hitung per-item dan subtotal
         $subtotal = 0;
         foreach ($this->items as $i) {
             $harga = (float) $i->harga_satuan * (float) $i->kuantitas;
@@ -87,7 +87,8 @@ class Faktur extends Model
                     : (float) $i->pajak->nilai;
             }
 
-            $i->jumlah = $setelahDiskonItem + $pajakItem; // tidak auto-save di sini
+            // set nilai jumlah di object (akan disave oleh caller)
+            $i->jumlah = $setelahDiskonItem + $pajakItem;
             $subtotal += $setelahDiskonItem;
         }
 
@@ -136,5 +137,23 @@ class Faktur extends Model
 
         // Total akhir: setelah diskon faktur + pajak faktur + jumlah item (yang sudah termasuk pajak item)
         $this->total_bersih = $setelahDiskonFaktur + $pajakFaktur + $this->items->sum('jumlah');
+    }
+
+    /**
+     * Helper aman: sinkronkan jumlah setiap item, hitung total faktur, dan simpan senyap.
+     */
+    public function refreshTotalsAndSave(): void
+    {
+        $this->load(['items.diskon', 'items.pajak', 'diskon', 'pajak']);
+
+        // pastikan setiap item menyimpan 'jumlah' terbaru
+        foreach ($this->items as $i) {
+            $i->sinkronJumlah();
+            $i->saveQuietly();
+        }
+
+        // hitung & simpan total faktur
+        $this->hitungTotal();
+        $this->saveQuietly();
     }
 }

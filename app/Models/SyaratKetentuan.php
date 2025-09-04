@@ -22,4 +22,8 @@ class SyaratKetentuan extends Model
             ->withPivot('urutan')
             ->withTimestamps();
     }
+    public function fakturPivots()
+    {
+        return $this->hasMany(FakturSyarat::class, 'syarat_ketentuan_id');
+    }
 }

@@ -5,14 +5,15 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
-    public function up(): void {
+    public function up(): void
+    {
         Schema::create('faktur', function (Blueprint $table) {
             $table->id();
             $table->string('nomor')->unique()->nullable(); // diisi otomatis saat terbit
             $table->foreignId('pelanggan_id')->constrained('pelanggan');
             $table->date('tanggal');
             $table->date('jatuh_tempo')->nullable();
-            $table->enum('status', ['draft','terbit','lunas','batal'])->default('draft')->index();
+            $table->enum('status', ['draft', 'terbit', 'lunas', 'batal'])->default('draft')->index();
 
             $table->string('kode_mata_uang')->default('IDR');
             $table->decimal('kurs', 18, 6)->default(1);
@@ -54,10 +55,11 @@ return new class extends Migration {
             $table->foreignId('syarat_ketentuan_id')->constrained('syarat_ketentuan');
             $table->integer('urutan')->default(0);
             $table->timestamps();
-            $table->unique(['faktur_id','syarat_ketentuan_id']);
+            $table->unique(['faktur_id', 'syarat_ketentuan_id']);
         });
     }
-    public function down(): void {
+    public function down(): void
+    {
         Schema::dropIfExists('faktur_syarat');
         Schema::dropIfExists('faktur_item');
         Schema::dropIfExists('faktur');
